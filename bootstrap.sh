@@ -57,5 +57,12 @@ PATH="$pixi_bin:$PATH"
 export PATH
 pixi install --manifest-path .repo/manifests/pixi.toml --all
 
+# 6. Each project's prek gates as its pre-push hook, so a push runs what CI runs.
+if command -v prek >/dev/null 2>&1; then
+  repo forall -c 'test ! -f .pre-commit-config.yaml || prek install -t pre-push'
+else
+  echo "prek is not on PATH; pushes will not run the CI gates locally" >&2
+fi
+
 echo
 echo "Workspace ready. Add these to PATH: $bin $pixi_bin"
