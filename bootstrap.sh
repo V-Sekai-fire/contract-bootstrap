@@ -57,5 +57,23 @@ PATH="$pixi_bin:$PATH"
 export PATH
 pixi install --manifest-path .repo/manifests/pixi.toml --all
 
+# 6. Each project's prek gates as its pre-push hook, so a push runs what CI runs.
+#    Git exports GIT_DIR to hooks in a worktree, and a gate self-test that builds a scratch
+#    repository with `git -C` then commits into the repository being pushed, so the hook
+#    unsets it first.
+if command -v prek >/dev/null 2>&1; then
+  repo forall -c '
+    test -f .pre-commit-config.yaml || exit 0
+    prek install -t pre-push || exit 1
+    h="$(cd "$(git rev-parse --git-common-dir)" && pwd)/hooks/pre-push"
+    grep -q "^unset GIT_DIR" "$h" && exit 0
+    awk "/^HERE=/ { print \"unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX\" } { print }" \
+      "$h" > "$h.tmp" && cat "$h.tmp" > "$h" && rm -f "$h.tmp"
+    grep -q "^unset GIT_DIR" "$h" || echo "$REPO_PATH: pre-push hook left without the GIT_DIR guard" >&2
+  '
+else
+  echo "prek is not on PATH; pushes will not run the CI gates locally" >&2
+fi
+
 echo
 echo "Workspace ready. Add these to PATH: $bin $pixi_bin"
