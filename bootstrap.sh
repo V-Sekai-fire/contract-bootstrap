@@ -1,16 +1,18 @@
 #!/bin/sh
 # One step from a bare machine to a synced, tooled workspace, on Linux and macOS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-manifest-weftspun/main/main/bootstrap.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main/bootstrap.sh | sh
 #
 # Runs in the current directory, which becomes the repo client root.
 set -eu
 
-raw=${WEFTSPUN_RAW:-https://raw.githubusercontent.com/V-Sekai-fire/contract-manifest-weftspun/main/main}
+raw=${WEFTSPUN_RAW:-https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main}
 manifest=${WEFTSPUN_MANIFEST:-https://github.com/V-Sekai-fire/contract-manifest-weftspun.git}
 branch=${WEFTSPUN_BRANCH:-main/main}
 bin="${LOCAL_BIN:-$HOME/.local/bin}"
 pixi_bin="${PIXI_HOME:-$HOME/.pixi}/bin"
+# Where the manifest places the contract-bootstrap project.
+boot=2-contract/bootstrap
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -37,25 +39,26 @@ install -m 0755 "$work/repo" "$bin/repo"
 PATH="$bin:$PATH"
 export PATH
 
-# 3. The manifest, over git, which is what makes the pins trustworthy.
-#    The heavy Hugging Face projects are git-lfs, and repo leaves LFS content as
-#    pointer files unless --git-lfs asked for it, so the default sync is metadata
-#    only; set WEFTSPUN_GIT_LFS=1 to pull the blobs too, tens of gigabytes of them.
+# 3. The manifest and this bootstrap project, over git, which is what makes the pins
+#    trustworthy. The heavy Hugging Face projects are git-lfs, and repo leaves LFS
+#    content as pointer files unless --git-lfs asked for it, so the default sync is
+#    metadata only; set WEFTSPUN_GIT_LFS=1 to pull the blobs too, tens of gigabytes.
 repo init ${WEFTSPUN_GIT_LFS:+--git-lfs} -u "$manifest" -b "$branch"
+repo sync "$boot"
 
 # 4. The CDN copy against the git copy. A difference means the pins that chose the
 #    launcher in step 2 were not the pins this repository holds.
-if ! cmp -s "$work/pins" .repo/manifests/bootstrap-pins.txt; then
-  echo "the pins served by $raw differ from the ones in the manifest repository" >&2
+if ! cmp -s "$work/pins" "$boot/bootstrap-pins.txt"; then
+  echo "the pins served by $raw differ from the ones in $boot" >&2
   exit 1
 fi
 
 # 5. pixi, from the pins now on disk, then the whole workspace.
-sh .repo/manifests/install.sh
+sh "$boot/install.sh"
 repo sync
 PATH="$pixi_bin:$PATH"
 export PATH
-pixi install --manifest-path .repo/manifests/pixi.toml --all
+pixi install --manifest-path "$boot/pixi.toml" --all
 
 # 6. Each project's prek gates as its pre-push hook, so a push runs what CI runs.
 #    Git exports GIT_DIR to hooks in a worktree, and a gate self-test that builds a scratch

@@ -1,17 +1,19 @@
 # One step from a bare machine to a synced, tooled workspace, on Windows:
 #
-#   irm https://raw.githubusercontent.com/V-Sekai-fire/contract-manifest-weftspun/main/main/bootstrap.ps1 | iex
+#   irm https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main/bootstrap.ps1 | iex
 #
 # Runs in the current directory, which becomes the repo client root.
 $ErrorActionPreference = 'Stop'
 
-$raw = $(if ($env:WEFTSPUN_RAW) { $env:WEFTSPUN_RAW } else { 'https://raw.githubusercontent.com/V-Sekai-fire/contract-manifest-weftspun/main/main' })
+$raw = $(if ($env:WEFTSPUN_RAW) { $env:WEFTSPUN_RAW } else { 'https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main' })
 $manifest = $(if ($env:WEFTSPUN_MANIFEST) { $env:WEFTSPUN_MANIFEST } else { 'https://github.com/V-Sekai-fire/contract-manifest-weftspun.git' })
 $branch = $(if ($env:WEFTSPUN_BRANCH) { $env:WEFTSPUN_BRANCH } else { 'main/main' })
 $bin = $(if ($env:LOCAL_BIN) { $env:LOCAL_BIN } else { Join-Path $HOME '.local\bin' })
 
 $pixiHome = $(if ($env:PIXI_HOME) { $env:PIXI_HOME } else { Join-Path $HOME '.pixi' })
 $pixiBin = Join-Path $pixiHome 'bin'
+# Where the manifest places the contract-bootstrap project.
+$boot = Join-Path (Get-Location) '2-contract\bootstrap'
 
 # The heavy Hugging Face projects are git-lfs. repo leaves LFS content as pointer
 # files unless `repo init --git-lfs` asked for it, so the default sync is metadata
@@ -68,15 +70,17 @@ try {
     Move-Item -Path $staged -Destination $repoDest -Force
     $env:PATH = "$bin;$env:PATH"
 
-    # 3. The manifest, over git, which is what makes the pins trustworthy.
+    # 3. The manifest and this bootstrap project, over git, which is what makes the
+    #    pins trustworthy.
     # Added --no-repo-verify to bypass Windows GPG keyring errors
     Invoke-Checked 'repo init' { python (Join-Path $bin 'repo') init --repo-url=https://gerrit.googlesource.com/git-repo --no-repo-verify @gitLfs -u $manifest -b $branch }
+    Invoke-Checked 'repo sync bootstrap' { python (Join-Path $bin 'repo') sync 2-contract/bootstrap }
 
     # 4. The CDN copy against the git copy. A difference means the pins that chose the
     #    launcher in step 2 were not the pins this repository holds.
-    $manifestPins = Join-Path (Get-Location) '.repo\manifests\bootstrap-pins.txt'
+    $manifestPins = Join-Path $boot 'bootstrap-pins.txt'
     if (-not (Test-Path $manifestPins)) {
-        throw "Manifest file not found at $manifestPins"
+        throw "bootstrap pins not found at $manifestPins"
     }
     
     #    Compared as text with line endings normalized: git checks the file out with CRLF
@@ -84,18 +88,18 @@ try {
     #    reports a difference that is not one.
     $normalize = { param($path) ((Get-Content -Raw $path) -replace "`r`n", "`n") }
     if ((& $normalize $pins) -ne (& $normalize $manifestPins)) {
-        throw "the pins served by $raw differ from the ones in the manifest repository"
+        throw "the pins served by $raw differ from the ones in $boot"
     }
 
     # 5. pixi, from the pins now on disk, then the whole workspace.
-    $installScript = Join-Path (Get-Location) '.repo\manifests\install.ps1'
+    $installScript = Join-Path $boot 'install.ps1'
     Invoke-Checked 'install.ps1' { & powershell -ExecutionPolicy Bypass -File $installScript }
 
     Invoke-Checked 'repo sync' { python (Join-Path $bin 'repo') sync }
     $env:PATH = "$pixiBin;$env:PATH"
     
     $pixiExe = Join-Path $pixiBin 'pixi.exe'
-    $pixiManifest = Join-Path (Get-Location) '.repo\manifests\pixi.toml'
+    $pixiManifest = Join-Path $boot 'pixi.toml'
     Invoke-Checked 'pixi install' { & $pixiExe install --manifest-path $pixiManifest --all }
 
     Write-Output ''

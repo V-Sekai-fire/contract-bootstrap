@@ -40,7 +40,7 @@ import xml.etree.ElementTree as ET
 import urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
-WORKSPACE = HERE.parent.parent  # .repo/manifests -> .repo -> the repo client root
+WORKSPACE = HERE.parent.parent  # 2-contract/bootstrap -> 2-contract -> the repo client root
 
 
 def read_pins(text):
@@ -121,7 +121,7 @@ def ci_llvm_mingw(workspace, manifest=None):
     The engine's checkout path comes from the manifest rather than being spelled here, so
     moving the project cannot silently turn this check into a skip.
     """
-    manifest = manifest or (HERE / "default.xml")
+    manifest = manifest or (pathlib.Path(workspace) / ".repo" / "manifests" / "default.xml")
     try:
         tree = ET.parse(manifest)
     except Exception:
