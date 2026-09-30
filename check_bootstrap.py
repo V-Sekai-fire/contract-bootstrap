@@ -10,7 +10,7 @@ release is re-pinned and the checksum copied from the wrong line, or a project d
 visible until somebody is standing at a bare machine.
 
 ORDER, AND THE ONE LINK NO PIN COVERS. `repo` comes first and `pixi` second, because the
-pins live inside the manifest repository and only `repo init` puts that on disk. So the
+pins live in this repository and only `repo sync` puts it on disk. So the
 launcher that performed the first fetch was itself unpinned; `install.sh` re-fetches it at
 the pinned version, verifies it, and says so when the launcher already on PATH differs.
 Moving pixi first would not close the circle, only relocate it.
