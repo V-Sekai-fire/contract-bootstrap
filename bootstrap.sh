@@ -7,7 +7,7 @@
 set -eu
 
 raw=${WEFTSPUN_RAW:-https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main}
-manifest=${WEFTSPUN_MANIFEST:-https://github.com/V-Sekai-fire/contract-manifest-weftspun.git}
+manifest=${WEFTSPUN_MANIFEST:-https://github.com/V-Sekai-fire/contract-manifest-taskweft.git}
 branch=${WEFTSPUN_BRANCH:-main/main}
 bin="${LOCAL_BIN:-$HOME/.local/bin}"
 pixi_bin="${PIXI_HOME:-$HOME/.pixi}/bin"

@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 
 $raw = $(if ($env:WEFTSPUN_RAW) { $env:WEFTSPUN_RAW } else { 'https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main' })
-$manifest = $(if ($env:WEFTSPUN_MANIFEST) { $env:WEFTSPUN_MANIFEST } else { 'https://github.com/V-Sekai-fire/contract-manifest-weftspun.git' })
+$manifest = $(if ($env:WEFTSPUN_MANIFEST) { $env:WEFTSPUN_MANIFEST } else { 'https://github.com/V-Sekai-fire/contract-manifest-taskweft.git' })
 $branch = $(if ($env:WEFTSPUN_BRANCH) { $env:WEFTSPUN_BRANCH } else { 'main/main' })
 $bin = $(if ($env:LOCAL_BIN) { $env:LOCAL_BIN } else { Join-Path $HOME '.local\bin' })
 
@@ -101,6 +101,39 @@ try {
     $pixiExe = Join-Path $pixiBin 'pixi.exe'
     $pixiManifest = Join-Path $boot 'pixi.toml'
     Invoke-Checked 'pixi install' { & $pixiExe install --manifest-path $pixiManifest --all }
+
+    # 6. Each project's prek gates as its pre-push hook, so a push runs what CI runs.
+    #    Git exports GIT_DIR to hooks in a worktree, and a gate self-test that builds a scratch
+    #    repository with `git -C` then commits into the repository being pushed, so the hook
+    #    unsets it first. The hook runs under Git's sh on Windows too, so the guard is the same
+    #    shell line bootstrap.sh inserts, placed before the hook's HERE= line.
+    if (Get-Command prek -ErrorAction SilentlyContinue) {
+        $guard = 'unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX'
+        $paths = python (Join-Path $bin 'repo') list -p
+        if ($LASTEXITCODE -ne 0) { throw "repo list failed with exit code $LASTEXITCODE" }
+        foreach ($path in $paths) {
+            $path = $path.Trim()
+            if (-not (Test-Path (Join-Path $path '.pre-commit-config.yaml'))) { continue }
+            Push-Location $path
+            try {
+                Invoke-Checked "prek install in $path" { prek install -t pre-push }
+                $hook = Join-Path (Resolve-Path (git rev-parse --git-common-dir).Trim()) 'hooks\pre-push'
+                $lines = @(Get-Content $hook)
+                if (-not ($lines -match '^unset GIT_DIR')) {
+                    $out = foreach ($l in $lines) { if ($l -match '^HERE=') { $guard }; $l }
+                    # LF and no BOM: sh reads this file.
+                    [System.IO.File]::WriteAllText($hook, (($out -join "`n") + "`n"))
+                }
+                if (-not (@(Get-Content $hook) -match '^unset GIT_DIR')) {
+                    Write-Warning "${path}: pre-push hook left without the GIT_DIR guard"
+                }
+            }
+            finally { Pop-Location }
+        }
+    }
+    else {
+        Write-Warning 'prek is not on PATH; pushes will not run the CI gates locally'
+    }
 
     Write-Output ''
     Write-Output "Workspace ready. Add these to PATH: $bin $pixiBin"

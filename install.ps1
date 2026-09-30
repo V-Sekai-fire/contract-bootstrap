@@ -1,5 +1,6 @@
 # Installs the pinned repo launcher and the pinned pixi into ~\.local\bin and
-# ~\.pixi\bin on Windows. Run it after `repo init`, from any directory.
+# ~\.pixi\bin on Windows. bootstrap.ps1 runs it once repo has synced this
+# repository to 2-contract\bootstrap; by hand it runs from any directory.
 $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -23,7 +24,7 @@ function ShaOf($path) { (Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvar
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Path $work | Out-Null
 try {
-  # repo first. The pins live in the manifest repository, which only exists once
+  # repo first. The pins live in this repository, which only exists on disk once
   # repo has fetched it, so the launcher that did the fetching is checked here
   # against the pin rather than before it -- the one link no pin can cover.
   $repoVersion = Pin 'repo' 'version'
