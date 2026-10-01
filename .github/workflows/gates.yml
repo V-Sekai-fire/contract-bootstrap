@@ -13,6 +13,8 @@ jobs:
           python-version: "3.x"
       - name: check_bootstrap self-test
         run: python check_bootstrap.py --self-test
+      - name: pixi_mirror self-test
+        run: python pixi_mirror.py --self-test
       # No repo client in CI, so the workspace pixi.toml pair is unchecked here.
       - name: check_bootstrap shipped pins
         run: python check_bootstrap.py --workspace /nonexistent
