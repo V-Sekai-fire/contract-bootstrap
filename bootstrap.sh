@@ -80,3 +80,10 @@ fi
 
 echo
 echo "Workspace ready. Add these to PATH: $bin $pixi_bin"
+echo
+echo 'Agent, start here: read the "Start here" paragraph at the top of AGENTS.md, then open'
+echo '2-contract/manuals-weftspun/rfd/2294-agent-knowledge-lives-in-rfds-not-in-desk-memory.exs,'
+echo 'find: details "Starting out in the workspace", and do its numbered steps in order, one at a time.'
+echo 'Read a file before you edit it. Never force-push, delete, or use --no-verify.'
+echo 'No GitHub credentials? Stop after committing and tell the operator your branch name.'
+echo 'If a step fails or you are unsure, stop and ask the operator.'

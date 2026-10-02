@@ -26,3 +26,16 @@ Then, offline, with MIRROR copied over:
 
 pixi refuses `file://` mirrors, so `serve` puts the tree on loopback. Install with `--locked`, not
 `--frozen`: `--frozen` installs a lock that no longer matches `pixi.toml` without saying so.
+
+## New agent? Start here
+
+After the bootstrap finishes, a new agent, a small local model included, follows this:
+
+```
+Agent, start here: read the "Start here" paragraph at the top of AGENTS.md, then open
+2-contract/manuals-weftspun/rfd/2294-agent-knowledge-lives-in-rfds-not-in-desk-memory.exs,
+find: details "Starting out in the workspace", and do its numbered steps in order, one at a time.
+Read a file before you edit it. Never force-push, delete, or use --no-verify.
+No GitHub credentials? Stop after committing and tell the operator your branch name.
+If a step fails or you are unsure, stop and ask the operator.
+```
