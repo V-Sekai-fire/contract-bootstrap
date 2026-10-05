@@ -1,41 +1,23 @@
-```
-# POSIX Shell
-curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/bootstrap.sh | sh
-# Windows Powershell
-irm https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/bootstrap.ps1 | iex
-```
+# contract-bootstrap
 
-Run on a bare machine to get a synced, tooled workspace. The pixi environment,
-the bootstrap and install scripts, and their pins live here, separated from the
-manifest repository, which places this repo and linkfiles these files to the
-workspace root.
+One step from a bare machine to a synced, tooled workspace.
 
-## Offline: a mirror of exactly what the locks pin
+## What it is for
 
-`pixi_mirror.py` copies the artifacts a `pixi.lock` pins for one platform, each checked against the
-lock's sha256, so a machine with no network installs the same environment. On a connected machine:
+It holds the workspace's pixi environment, the bootstrap and install scripts, and the pins they install, apart from the goal manifest that places this repository and links these files to the workspace root. A mirror script copies exactly what a lock pins, checked against the lock's hashes, so a machine with no network installs the same environment.
 
-    python3 pixi_mirror.py build --lock pixi.lock --platform linux-64 --out MIRROR
+## Build and run
 
-Then, offline, with MIRROR copied over:
+In a POSIX shell:
 
-    python3 pixi_mirror.py verify --lock pixi.lock --platform linux-64 --out MIRROR
-    python3 pixi_mirror.py serve --out MIRROR &
-    python3 pixi_mirror.py config --lock pixi.lock --platform linux-64 > .pixi/config.toml
-    pixi install --locked --all
+    curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/bootstrap.sh | sh
 
-pixi refuses `file://` mirrors, so `serve` puts the tree on loopback. Install with `--locked`, not
-`--frozen`: `--frozen` installs a lock that no longer matches `pixi.toml` without saying so.
+In PowerShell:
 
-## New agent? Start here
+    irm https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/bootstrap.ps1 | iex
 
-After the bootstrap finishes, a new agent, a small local model included, follows this:
+When it finishes, a new agent starts at the "Start here" paragraph of the workspace's `AGENTS.md`, which leads to RFD 2294. The mirror script's own help gives the offline steps.
 
-```
-Agent, start here: read the "Start here" paragraph at the top of AGENTS.md, then open
-2-contract/manuals-weftspun/rfd/2294-agent-knowledge-lives-in-rfds-not-in-desk-memory.exs,
-find: details "Starting out in the workspace", and do its numbered steps in order, one at a time.
-Read a file before you edit it. Never force-push, delete, or use --no-verify.
-No GitHub credentials? Stop after committing and tell the operator your branch name.
-If a step fails or you are unsure, stop and ask the operator.
-```
+## Licence
+
+There is no LICENSE file. The gate script's SPDX header marks it Apache-2.0 OR MIT.
