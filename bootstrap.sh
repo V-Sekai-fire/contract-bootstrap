@@ -1,14 +1,14 @@
 #!/bin/sh
 # One step from a bare machine to a synced, tooled workspace, on Linux and macOS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main/bootstrap.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/bootstrap.sh | sh
 #
 # Runs in the current directory, which becomes the repo client root.
 set -eu
 
-raw=${WEFTSPUN_RAW:-https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main/main}
+raw=${WEFTSPUN_RAW:-https://raw.githubusercontent.com/V-Sekai-fire/contract-bootstrap/main}
 manifest=${WEFTSPUN_MANIFEST:-https://github.com/V-Sekai-fire/contract-manifest-taskweft.git}
-branch=${WEFTSPUN_BRANCH:-main/main}
+branch=${WEFTSPUN_BRANCH:-main}
 bin="${LOCAL_BIN:-$HOME/.local/bin}"
 pixi_bin="${PIXI_HOME:-$HOME/.pixi}/bin"
 # Where the manifest places the contract-bootstrap project.
