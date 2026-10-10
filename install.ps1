@@ -66,17 +66,62 @@ try {
   $exe = Join-Path $pixiBin 'pixi.exe'
   if ((Test-Path $exe) -and ((& $exe --version) -eq "pixi $pixiVersion")) {
     Write-Output "pixi $pixiVersion already at $exe"
-    exit 0
+  } else {
+    $archive = Join-Path $work $asset
+    Invoke-WebRequest -UseBasicParsing -Uri "$pixiSource$asset" -OutFile $archive
+    $got = ShaOf $archive
+    if ($got -ne $sha) { throw "checksum mismatch for ${asset}: got $got, pinned $sha" }
+
+    Expand-Archive -Path $archive -DestinationPath $work -Force
+    New-Item -ItemType Directory -Path $pixiBin -Force | Out-Null
+    Move-Item -Path (Join-Path $work $member) -Destination $exe -Force
+    Write-Output "pixi $pixiVersion installed to $exe"
   }
 
-  $archive = Join-Path $work $asset
-  Invoke-WebRequest -UseBasicParsing -Uri "$pixiSource$asset" -OutFile $archive
-  $got = ShaOf $archive
-  if ($got -ne $sha) { throw "checksum mismatch for ${asset}: got $got, pinned $sha" }
+  # Nushell, Erlang and Elixir last: the workspace's scripting tools (Nushell for shell
+  # glue, Elixir for tools). Nushell is a pixi global tool from conda-forge, like on
+  # Linux and macOS. conda-forge has no Windows Erlang, so Erlang and Elixir come from
+  # their own release zips, pinned and checked like pixi, unpacked beside $bin.
+  $nuVersion = Pin 'nushell' 'version'
+  & $exe global install "nushell==$nuVersion"
+  if ($LASTEXITCODE -ne 0) { throw "pixi global install nushell failed with exit code $LASTEXITCODE" }
 
-  Expand-Archive -Path $archive -DestinationPath $work -Force
-  New-Item -ItemType Directory -Path $pixiBin -Force | Out-Null
-  Move-Item -Path (Join-Path $work $member) -Destination $exe -Force
-  Write-Output "pixi $pixiVersion installed to $exe; put $bin and $pixiBin on PATH"
+  $toolRoot = Split-Path -Parent $bin
+  $toolBins = @()
+  foreach ($tool in @('erlang', 'elixir')) {
+    $version = Pin $tool 'version'
+    $source = Pin $tool 'source'
+    $zip = $null
+    foreach ($r in $rows) {
+      if ($r.Count -ge 5 -and $r[0] -eq $tool -and $r[1] -eq 'windows') { $zip = $r; break }
+    }
+    if ($null -eq $zip) { throw "bootstrap-pins.txt has no complete $tool windows row" }
+    $zAsset = $zip[2]; $zSha = $zip[3]; $dest = Join-Path $toolRoot $zip[4]
+    $stamp = Join-Path $dest '.pinned-sha256'
+    if ((Test-Path $stamp) -and ((Get-Content $stamp).Trim() -eq $zSha)) {
+      Write-Output "$tool $version already at $dest"
+    } else {
+      $archive = Join-Path $work $zAsset
+      Invoke-WebRequest -UseBasicParsing -Uri "$source$zAsset" -OutFile $archive
+      $got = ShaOf $archive
+      if ($got -ne $zSha) { throw "checksum mismatch for ${zAsset}: got $got, pinned $zSha" }
+      if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
+      Expand-Archive -Path $archive -DestinationPath $dest -Force
+      Set-Content -Path $stamp -Value $zSha
+      Write-Output "$tool $version installed to $dest"
+    }
+    $toolBins += (Join-Path $dest 'bin')
+  }
+
+  # Erlang needs the Microsoft Visual C++ runtime. Installing it needs an administrator,
+  # so it is named here rather than run behind the operator's back.
+  $erl = Join-Path $toolBins[0] 'erl.exe'
+  # No double quotes in the argument: Windows PowerShell 5.1 strips them on the way to a native program.
+  $probe = & $erl -noshell -eval 'erlang:display(erlang:system_info(otp_release)), halt().' 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    $redist = Join-Path (Split-Path -Parent $toolBins[0]) 'vc_redist.exe'
+    throw "erl did not start ($probe). Install the Visual C++ runtime as an administrator: `"$redist`" /install /quiet /norestart"
+  }
+  Write-Output "erlang runs (OTP $probe); put $bin, $pixiBin, $($toolBins -join ', ') on PATH"
 }
 finally { Remove-Item -Recurse -Force $work }

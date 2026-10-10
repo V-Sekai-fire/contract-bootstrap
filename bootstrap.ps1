@@ -136,7 +136,13 @@ try {
     }
 
     Write-Output ''
-    Write-Output "Workspace ready. Add these to PATH: $bin $pixiBin"
+    # install.ps1 unpacked Erlang and Elixir beside $bin, in the folders their pins name.
+    $toolRoot = Split-Path -Parent $bin
+    $toolBins = foreach ($l in Get-Content (Join-Path $boot 'bootstrap-pins.txt')) {
+        $f = $l.Trim() -split '\s+'
+        if ($f.Count -eq 5 -and $f[1] -eq 'windows') { Join-Path (Join-Path $toolRoot $f[4]) 'bin' }
+    }
+    Write-Output "Workspace ready. Add these to PATH: $bin $pixiBin $($toolBins -join ' ')"
     Write-Output ''
     Write-Output 'Agent, start here: read the "Start here" paragraph at the top of AGENTS.md, then open'
     Write-Output '2-contract/manuals-weftspun/rfd/2294-agent-knowledge-lives-in-rfds-not-in-desk-memory.exs,'

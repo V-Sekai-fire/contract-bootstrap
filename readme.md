@@ -4,7 +4,7 @@ One step from a bare machine to a synced, tooled workspace.
 
 ## What it is for
 
-It holds the workspace's pixi environment, the bootstrap and install scripts, and the pins they install, apart from the goal manifest that places this repository and links these files to the workspace root. A mirror script copies exactly what a lock pins, checked against the lock's hashes, so a machine with no network installs the same environment.
+It holds the workspace's pixi environment, the bootstrap and install scripts, and the pins they install (repo, pixi, and the scripting tools Nushell, Erlang and Elixir), apart from the goal manifest that places this repository and links these files to the workspace root. A mirror script copies exactly what a lock pins, checked against the lock's hashes, so a machine with no network installs the same environment.
 
 ## Build and run
 
