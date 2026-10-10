@@ -20,4 +20,4 @@ When it finishes, a new agent starts at the "Start here" paragraph of the worksp
 
 ## Licence
 
-There is no LICENSE file. The gate script's SPDX header marks it Apache-2.0 OR MIT.
+MIT. See [LICENSE](LICENSE).
