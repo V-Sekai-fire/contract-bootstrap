@@ -57,15 +57,27 @@ asset=$1 sha=$2 member=$3
 
 if [ -x "$pixi_bin/pixi" ] && "$pixi_bin/pixi" --version 2>/dev/null | grep -qx "pixi $pixi_version"; then
   echo "pixi $pixi_version already at $pixi_bin/pixi"
-  exit 0
+else
+  curl -fsSL -o "$work/$asset" "$pixi_source$asset"
+  got=$(sha_of "$work/$asset")
+  [ "$got" = "$sha" ] || { echo "checksum mismatch for $asset: got $got, pinned $sha" >&2; exit 1; }
+
+  tar -xzf "$work/$asset" -C "$work" "$member"
+  mkdir -p "$pixi_bin"
+  mv "$work/$member" "$pixi_bin/pixi"
+  chmod +x "$pixi_bin/pixi"
+  echo "pixi $pixi_version installed to $pixi_bin/pixi"
 fi
 
-curl -fsSL -o "$work/$asset" "$pixi_source$asset"
-got=$(sha_of "$work/$asset")
-[ "$got" = "$sha" ] || { echo "checksum mismatch for $asset: got $got, pinned $sha" >&2; exit 1; }
-
-tar -xzf "$work/$asset" -C "$work" "$member"
-mkdir -p "$pixi_bin"
-mv "$work/$member" "$pixi_bin/pixi"
-chmod +x "$pixi_bin/pixi"
-echo "pixi $pixi_version installed to $pixi_bin/pixi; put $bin and $pixi_bin on PATH"
+# Nushell, Erlang and Elixir last: the workspace's scripting tools (Nushell for shell
+# glue, Elixir for tools). They come from conda-forge as pixi global tools, so they land
+# in $pixi_bin at the pinned versions. Elixir and Erlang share one environment, because
+# Elixir runs on the Erlang it was installed with.
+nu_version=$(awk '$1=="nushell" && $2=="version"{print $3}' "$pins")
+erlang_version=$(awk '$1=="erlang" && $2=="version"{print $3}' "$pins")
+elixir_version=$(awk '$1=="elixir" && $2=="version"{print $3}' "$pins")
+[ -n "$nu_version" ] && [ -n "$erlang_version" ] && [ -n "$elixir_version" ] ||
+  { echo "bootstrap-pins.txt must pin nushell, erlang and elixir versions" >&2; exit 1; }
+"$pixi_bin/pixi" global install "nushell==$nu_version"
+"$pixi_bin/pixi" global install --environment elixir "elixir==$elixir_version" "erlang==$erlang_version"
+echo "nushell $nu_version, erlang $erlang_version and elixir $elixir_version installed to $pixi_bin; put $bin and $pixi_bin on PATH"

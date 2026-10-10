@@ -25,6 +25,9 @@ handful of lines in files this repository owns.
   5. the pinned repo launcher matches what its source serves
   6. every script the readme's one-step command names exists here
   7. the pinned llvm-mingw is the release the engine's Windows CI job installs
+  8. Nushell, Erlang and Elixir are pinned, with a Windows zip row for Erlang and Elixir
+  9. the Elixir zip is built for the pinned Erlang's major release
+ 10. every pinned Windows zip checksum matches the digest its GitHub release publishes
 
 The last two need the network. They are not skipped when it is absent, because a silent skip
 reads exactly like a pass; `--offline` drops them and still exits non-zero, naming them.
@@ -44,7 +47,8 @@ WORKSPACE = HERE.parent.parent  # 2-contract/bootstrap -> 2-contract -> the repo
 
 
 def read_pins(text):
-    """`<tool> <key> <value...>` lines; pixi platform rows keyed by platform name."""
+    """`<tool> <key> <value...>` lines; pixi platform rows keyed by platform name. The
+    `<tool> windows <asset> <sha256> <dir>` rows are also returned by check() via windows_rows()."""
     scalars, rows = {}, {}
     for line in text.splitlines():
         parts = line.split()
@@ -55,6 +59,33 @@ def read_pins(text):
         else:
             scalars[(parts[0], parts[1])] = parts[2]
     return scalars, rows
+
+
+def windows_rows(text):
+    """`<tool> windows <asset> <sha256> <dir>` rows, keyed by tool: release zips for the tools
+    conda-forge cannot install on Windows."""
+    out = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 5 and parts[1] == "windows":
+            out[parts[0]] = {"asset": parts[2], "sha256": parts[3], "dir": parts[4]}
+    return out
+
+
+def release_digests(source):
+    """asset name -> sha256 hex for the GitHub release a `.../releases/download/TAG/` source names."""
+    import json, os, re
+    m = re.match(r"https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/?$", source)
+    if not m:
+        raise ValueError(f"{source} is not a GitHub release download URL")
+    req = urllib.request.Request(f"https://api.github.com/repos/{m[1]}/{m[2]}/releases/tags/{m[3]}",
+                                 headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=60) as response:
+        release = json.loads(response.read())
+    return {a["name"]: (a.get("digest") or "").removeprefix("sha256:") for a in release.get("assets", [])}
 
 
 def sh_arms(text):
@@ -150,6 +181,21 @@ def check(pins_text, sh_text, ps_text, workspace, offline, readme_text=None):
                 ("repo", "version"), ("repo", "source"), ("repo", "sha256")]:
         if key not in scalars:
             failures.append(f"FAIL bootstrap-pins.txt names no {key[0]} {key[1]}")
+    win = windows_rows(pins_text)
+    for key in [("nushell", "version"), ("erlang", "version"), ("erlang", "source"),
+                ("elixir", "version"), ("elixir", "source")]:
+        if key not in scalars:
+            failures.append(f"FAIL bootstrap-pins.txt names no {key[0]} {key[1]}")
+    for tool in ("erlang", "elixir"):
+        if tool not in win:
+            failures.append(f"FAIL bootstrap-pins.txt has no {tool} windows row")
+    if "elixir" in win and ("erlang", "version") in scalars:
+        built_for = win["elixir"]["asset"].removeprefix("elixir-otp-").removesuffix(".zip")
+        erlang_major = scalars[("erlang", "version")].split(".")[0]
+        counts["elixir zip checked against the erlang pin"] = 1
+        if built_for != erlang_major:
+            failures.append(f"FAIL elixir windows zip {win['elixir']['asset']} is built for OTP {built_for}, "
+                            f"erlang is pinned at {scalars[('erlang', 'version')]}")
     if failures or not rows:
         return failures or ["FAIL bootstrap-pins.txt pins no pixi platform"], counts
 
@@ -195,6 +241,7 @@ def check(pins_text, sh_text, ps_text, workspace, offline, readme_text=None):
     if offline:
         counts["pixi checksums verified against the release"] = 0
         counts["repo launcher verified against its source"] = 0
+        counts["windows zips verified against their releases"] = 0
         failures.append("FAIL --offline: the published checksums were not read, which is not a pass")
         return failures, counts
 
@@ -224,6 +271,20 @@ def check(pins_text, sh_text, ps_text, workspace, offline, readme_text=None):
                 f"FAIL repo launcher {scalars[('repo', 'version')]}: "
                 f"pinned {scalars[('repo', 'sha256')][:12]}, served {got[:12]}"
             )
+
+    counts["windows zips verified against their releases"] = 0
+    for tool, row in sorted(win.items()):
+        try:
+            published = release_digests(scalars[(tool, "source")]).get(row["asset"])
+        except Exception as exc:
+            failures.append(f"FAIL could not read the {tool} release digests: {exc}")
+            continue
+        if not published:
+            failures.append(f"FAIL {row['asset']} has no published digest in the {tool} release")
+        elif published != row["sha256"]:
+            failures.append(f"FAIL {tool} windows: pinned {row['sha256'][:12]}, published {published[:12]}")
+        else:
+            counts["windows zips verified against their releases"] += 1
 
     return failures, counts
 
@@ -271,6 +332,16 @@ def self_test():
             pins + "pixi platform aix-64 pixi-aix.tar.gz " + "0" * 64 + " pixi\n",
             True,
         ),
+        ("a wrong erlang windows checksum is rejected",
+         corrupt(pins, ["erlang", "windows"], 3), False),
+        ("a wrong elixir windows checksum is rejected",
+         corrupt(pins, ["elixir", "windows"], 3), False),
+        ("an elixir zip built for another OTP is rejected",
+         pins.replace("elixir-otp-", "elixir-otp-1", 1), True),
+        ("a missing nushell pin is rejected",
+         "\n".join(l for l in pins.splitlines() if not l.startswith("nushell version")), True),
+        ("a missing erlang windows row is rejected",
+         "\n".join(l for l in pins.splitlines() if not l.startswith("erlang windows")), True),
         ("a missing repo pin is rejected",
          "\n".join(l for l in pins.splitlines() if not l.startswith("repo source")), True),
         ("--offline is not a pass", pins, True),

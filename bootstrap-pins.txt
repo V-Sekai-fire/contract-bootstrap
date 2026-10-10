@@ -13,3 +13,10 @@ repo sha256 1211b57b57e4122a9c546295a59b37d24068f1164d0e87bef096d5323c413e4f
 llvm-mingw version 20260505
 llvm-mingw source https://github.com/mstorsjo/llvm-mingw/releases/download/20260505/
 llvm-mingw platform win-64 llvm-mingw-20260505-ucrt-x86_64.zip 3e6919b3da2b6bfc05d8caf0ab10d5c0be4ddbb873b3c33790a71fe43c09c51f llvm-mingw-20260505-ucrt-x86_64
+nushell version 0.116.1
+erlang version 29.1.1
+erlang source https://github.com/erlang/otp/releases/download/OTP-29.1.1/
+erlang windows otp_win64_29.1.1.zip 337480af988eca993c2e98b68850f00fc6724d366346565e38941ac0d1b7c56b erlang-29.1.1
+elixir version 1.20.4
+elixir source https://github.com/elixir-lang/elixir/releases/download/v1.20.4/
+elixir windows elixir-otp-29.zip 7863c546cda13fecc949e562e326042451dacf8fd8698a36783cb71eeb223b46 elixir-1.20.4
